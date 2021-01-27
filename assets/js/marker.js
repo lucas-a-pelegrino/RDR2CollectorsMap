@@ -66,7 +66,7 @@ class Marker {
     this.primaryDescriptionKey = (() => {
       if (this.category === 'random') {
         return `${this.text}.desc`;
-      }  else {
+      } else {
         return `${this.markerId}.desc`;
       }
     })();
@@ -109,6 +109,28 @@ class Marker {
           return 'map.egg_type.ground';
         default:
           return '';
+      }
+    })();
+
+    /**
+     * Used to get the loot table key per category.
+     *
+     * @returns {string} The key of the loot table.
+     */
+    this.lootTable = (() => {
+      if (this.category === 'fossils_random') {
+        if (this.text.includes('_mud_'))
+          return 'fossils_buried_mud';
+        else if (this.text.includes('_snow_dirt_'))
+          return 'fossils_buried_dirt_snow';
+        else if (this.text.includes('_snow_'))
+          return 'fossils_buried_snow';
+        else if (this.text.includes('_water_'))
+          return 'fossils_buried_water';
+        else
+          return this.category;
+      } else {
+        return this.category;
       }
     })();
   }
@@ -181,7 +203,7 @@ class Marker {
     const markerColor = MapBase.isPreviewMode ? 'by_cycle' : Settings.markerColor;
     if (markerColor.startsWith('auto')) {
       const [, normal, dark] = markerColor.split('_');
-      return url(MapBase.isDarkMode ? [dark, normal] : [normal, dark]);
+      return url(MapBase.isDarkMode() ? [dark, normal] : [normal, dark]);
     }
 
     let base;
@@ -238,10 +260,11 @@ class Marker {
     const unknownCycle = this.cycleName == Cycles.unknownCycleNumber;
     const snippet = $(`<div class="handover-wrapper-with-no-influence">
       <h1>
-        <span data-text="${this.itemTranslationKey}"></span>
-        ${this.itemNumberStr} -
-        <span data-text="menu.day"></span>
-        <span data-text="${unknownCycle ? 'map.unknown_cycle' : this.cycleName}"></span>
+        <span data-text="${this.itemTranslationKey}"></span> ${this.itemNumberStr}
+        <span class="cycle-display hidden">
+          -&nbsp;<span data-text="menu.day"></span>
+          <span data-text="${unknownCycle ? 'map.unknown_cycle' : this.cycleName}"></span>
+        </span>
       </h1>
       <span class="marker-warning-wrapper">
         <div>
@@ -262,10 +285,10 @@ class Marker {
           </div>
       </span>
       <p class='marker-popup-links'>
-        <a href="" data-text="map.copy_link"></a>
-        <span>| <a href="" data-text="map.view_loot" data-toggle="modal" data-target="#loot-table-modal" data-loot-table="${this.category}"></a></span>
-        <span>| <a href="${this.video}" target="_blank" data-text="map.video"></a></span>
-        <span>| <a href="" data-text="map.mark_important"></a></span>
+        <span><a href="${this.video}" target="_blank" data-text="map.video"></a> |</span>
+        <span><a href="" data-text="map.view_loot" data-toggle="modal" data-target="#loot-table-modal" data-loot-table="${this.lootTable}"></a> |</span>
+        <span><a href="" data-text="map.mark_important"></a> |</span>
+        <span><a href="" data-text="map.copy_link"></a></span>
       </p>
       <small class="popupContentDebug">Latitude: ${this.lat} / Longitude: ${this.lng}</small>
       <div class="marker-popup-buttons">
@@ -278,7 +301,10 @@ class Marker {
       </button>
     </div>`);
 
-    snippet.find('.marker-popup-links')
+    snippet.find('.cycle-display')
+      .toggleClass('hidden', !Settings.isCyclesVisible)
+      .end()
+      .find('.marker-popup-links')
       .find('[data-text="map.copy_link"]')
       .click((e) => {
         e.preventDefault();
@@ -308,7 +334,7 @@ class Marker {
     if (!this.buggy && this.tool === 0) {
       toolImg.hide();
     } else {
-      const imgName = this.buggy ? 'cross' : {1: 'shovel', 2: 'magnet'}[this.tool];
+      const imgName = this.buggy ? 'cross' : { 1: 'shovel', 2: 'magnet' }[this.tool];
       toolImg.attr('src', `assets/images/${imgName}.png`);
     }
     if (!Settings.isDebugEnabled) snippet.find('.popupContentDebug').hide();
@@ -374,13 +400,20 @@ class Marker {
         extra.remove();
     }
 
+    let itemString = `${Language.get(this.itemTranslationKey)} ${this.itemNumberStr}`;
+
+    const unknownCycle = this.cycleName == Cycles.unknownCycleNumber;
+    if (!unknownCycle && Settings.isCyclesVisible)
+      itemString += ` - ${Language.get('menu.day')} ${this.cycleName}`;
+
     this.lMarker = L.marker([this.lat, this.lng], {
       icon: new L.DivIcon.DataMarkup({
         iconSize: [35 * markerSize, 45 * markerSize],
         iconAnchor: [17 * markerSize, 42 * markerSize],
         popupAnchor: [1 * markerSize, -29 * markerSize],
         html: snippet[0],
-        marker: this.text
+        marker: this.text,
+        tippy: itemString,
       })
     });
 
